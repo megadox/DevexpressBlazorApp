@@ -1,0 +1,65 @@
+﻿@inject AppConfiguration Configuration
+
+<div class="search-results @ListCssClass">
+    @if (SearchResults != null)
+    {
+        @if (SearchResults.Count > 0)
+        {
+            <ul class="nav nav-pills">
+                @for (var i = 0; i < SearchResults.Count; i++)
+                {
+                    var demoItems = GetItemsList(SearchResults[i]);
+                    <li class="nav-item">
+                        <a class="nav-link" href="@GetMainLinkUrl(SearchResults[i])">@GetMainLinkText(SearchResults[i])</a>
+                        @for (var j = 0; j < demoItems.Count; j++)
+                        {
+                            <a class="nav-link" href="@demoItems[j].GetUrl()">@demoItems[j].Title</a>
+                            @if (j < demoItems.Count - 1)
+                            {
+                                <span class="nav-link link-separator"></span>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <span>No results found for <b>@SearchString</b></span>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string SearchString { get; set; }
+    [Parameter]
+    public List<AppSearchResult> SearchResults { get; set; }
+
+    public string ListCssClass { get { return SearchResults != null ? "shown" : ""; } }
+
+    public List<AppItem> GetItemsList(AppSearchResult result)
+    {
+        List<AppItem> list = new List<AppItem>();
+        var demoItem = result.Item;
+        if (!(demoItem is AppRootPage))
+        {
+            if (demoItem is AppPageSection)
+                demoItem = demoItem.ParentPage;
+            while (demoItem != null)
+            {
+                list.Insert(0, demoItem);
+                demoItem = demoItem.ParentPage;
+            }
+        }
+        return list;
+    }
+    public string GetMainLinkUrl(AppSearchResult result)
+    {
+        return result.Item.GetUrl();
+    }
+    public MarkupString GetMainLinkText(AppSearchResult result)
+    {
+        return new MarkupString(result.Text);
+    }
+}

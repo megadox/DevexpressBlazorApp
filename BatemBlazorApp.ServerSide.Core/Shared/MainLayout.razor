@@ -1,0 +1,276 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject AppConfiguration Configuration
+@inject AppThemeService Themes
+
+<AppScriptLoader @ref=@pageHelper Src="_content/BatemBlazorApp/lib/page-helper.js" />
+
+<div class="@GetDemoHeaderContainerCss()">
+    <nav class="demo-header p-0 navbar navbar-dark">
+        <AppLayoutToggleButton @bind-Toggled="@LayoutToggled" />
+        <div class="logo-image">
+            <a href="https://www.devexpress.com/" target="_blank" title="DevExpress">
+                <span class="logo-img"></span>
+            </a>
+            <div class="logo-sep"></div>
+            <a href="" target="_blank" title="Blazor Demos Home Page" >
+                <span class="logo-sec-img"></span>
+            </a>
+        </div>
+        <div class="demo-btn-container d-flex">
+            <DxButton NavigateUrl="https://go.devexpress.com/DevexpressDownload_UniversalTrial.aspx"
+                CssClass="download-btn"
+                IconCssClass="demo-download-icon"
+                Text="Free Trial" SizeMode="SizeMode.Large"></DxButton>
+            <DxButton NavigateUrl="https://github.com/DevExpress/blazor"
+                      CssClass="github-btn"
+                      IconCssClass="demo-github-icon"
+                      RenderStyle="ButtonRenderStyle.Secondary" RenderStyleMode="ButtonRenderStyleMode.Outline"
+                      Text="GitHub" SizeMode="SizeMode.Large"></DxButton>
+            <div class="btn-sep"></div>
+            <DxButton Click="@ToggleThemeSwitcherPanel" CssClass="@GetThemeSwitcherCssClass()" SizeMode="SizeMode.Large"
+                RenderStyle="ButtonRenderStyle.Secondary" RenderStyleMode="ButtonRenderStyleMode.Outline" IconCssClass="demo-theme-icon"></DxButton>
+        </div>
+        <!--<ThemeSwitcher @bind-Shown="@ThemeSwitcherShown" @bind-ThemeName="@ThemeName" />-->
+    </nav>
+</div>
+<div class="@GetDemoBreadcrumbsContainerCss()">
+    <div class="breadcrumb">
+        <div class="@GetDemoBreadcrumbsCss()">
+            <AppBreadcrumbs></AppBreadcrumbs>
+        </div>
+    </div>
+</div>
+<div class="@GetDemoContentContainerCss()" @ref="@contentContainerRef">
+    <div class="demo-content @LayoutStateCssClass">
+        <div class="sidebar">
+            <AppSearchEditor @bind-SearchString="@SearchString" />
+            <DxScrollView>
+                <AppSearchResultList SearchString="@SearchString" SearchResults="@SearchResults" />
+                <NavMenuFactoryComponent />
+            </DxScrollView>
+            <div class="info-wrapper">
+                <div class="version">Version: @AppVersion.Version</div>
+                <div class="copyright">
+                    <span>Copyright &copy; 2000-</span><span>@DateTimeNowYear</span>
+                    Developer Express Inc
+                </div>
+            </div>
+        </div>
+        <div class="main">
+            <div class="content" @key="ShouldUseThemeNameKey() ? ThemeName : null">
+                <CascadingValue Value="@ThemeName" Name="ThemeName">
+                    @Body
+                </CascadingValue>
+            </div>
+            <div class="content-footer"></div>
+        </div>
+        @if(!_isDesktop) {
+            <AppModalBackdrop Shown="@ModalBackgroundShown" ShownChanged="@ModalBackdropShownChanged" />
+        }
+    </div>
+</div>
+
+@code {
+    static readonly int DateTimeNowYear = DateTime.Now.Year;
+
+    string _themeName;
+    bool _layoutToggled;
+    bool _themeSwitcherShown;
+    bool _isDesktop = true;
+    string _searchString = "";
+    ElementReference contentContainerRef;
+
+    AppScriptLoader pageHelper;
+
+    [Inject]
+    IAppVersion AppVersion { get; set; }
+    [Inject]
+    protected NavigationManager NavigationManager { get; set; }
+    [Inject]
+    IJSRuntime JsRuntime { get; set; }
+
+
+    protected string ThemeName {
+        get { return _themeName; }
+        set {
+            if(_themeName != value) {
+                _themeName = value;
+                Themes.SetActiveThemeByName(value);
+            }
+        }
+    }
+
+    protected bool IsBootstrapNative {
+        get { return Themes.ActiveTheme.IsBootstrapNative; }
+    }
+
+    protected override void OnInitialized() {
+        ThemeName = Themes.ActiveTheme.Name;
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    void TryRedirect(string url) {
+        if(TryGetRedirectUrl(url, out var uri))
+            NavigationManager.NavigateTo(uri, true);
+    }
+    protected bool TryGetRedirectUrl(string currentUrl, out string redirectUrl) {
+        redirectUrl = "";
+        return currentUrl?.Length > NavigationManager.BaseUri?.Length && Configuration.Redirects.TryGetValue(currentUrl.Substring(NavigationManager.BaseUri.Length).ToLower(), out redirectUrl);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        TryRedirect(NavigationManager.Uri);
+        if(firstRender) {
+            await ScrollToMainTopIfNeeded(NavigationManager.Uri);
+
+            await pageHelper.InvokeVoidAsync("DemoPageHelper.demoMatchesQuery", "(min-width: 1200px)", DotNetObjectReference.Create(this));
+            await pageHelper.InvokeVoidAsync("DemoPageHelper.patchAppElement");
+        }
+        else {
+            await pageHelper.InvokeVoidAsync("DemoPageHelper.themes.setThemeName", AppThemeService.ThemeCookieKey, ThemeName);
+
+            if(_isDesktop && SavedLayoutToggled != LayoutToggled)
+                await pageHelper.InvokeVoidAsync("DemoPageHelper.raiseWindowOnResize");
+        }
+        await ScrollToTargetIfNeeded(NavigationManager.Uri);
+        SavedLayoutToggled = LayoutToggled;
+        IsFirstTimeRendered = true;
+    }
+    async void OnLocationChanged(object sender, LocationChangedEventArgs args) {
+        TryRedirect(args.Location);
+        ThemeSwitcherShown = false;
+        if(!_isDesktop) {
+            LayoutToggled = false;
+        }
+        await ScrollToMainTopIfNeeded(args.Location);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnQueryChanged(bool isDesktop) {
+        if(_isDesktop != isDesktop) {
+            _isDesktop = isDesktop;
+            LayoutToggled = false;
+            ThemeSwitcherShown = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    bool LayoutToggled {
+        get { return _layoutToggled; }
+        set {
+            if(_layoutToggled != value) {
+                _layoutToggled = value;
+                if(!_isDesktop && _layoutToggled)
+                    ThemeSwitcherShown = false;
+            }
+        }
+    }
+    string LayoutStateCssClass { get { return IsFirstTimeRendered ? ((_isDesktop && LayoutToggled || !_isDesktop && !LayoutToggled) ? "sidebar-hidden" : "sidebar-shown") : ""; } }
+    bool SavedLayoutToggled { get; set; }
+    bool ModalBackgroundShown { get { return !_isDesktop && (ThemeSwitcherShown || LayoutToggled); } }
+    bool IsFirstTimeRendered { get; set; }
+
+    bool ThemeSwitcherShown {
+        get { return _themeSwitcherShown; }
+        set {
+            if(_themeSwitcherShown != value) {
+                _themeSwitcherShown = value;
+                if(!_isDesktop && _themeSwitcherShown)
+                    LayoutToggled = false;
+            }
+        }
+    }
+
+    void ToggleThemeSwitcherPanel() {
+        ThemeSwitcherShown = !ThemeSwitcherShown;
+    }
+
+    bool ShouldUseThemeNameKey() {
+        var page = Configuration.GetDemoPageByUrl(NavigationManager, NavigationManager.Uri);
+        while(page != null) {
+            if(page.ReCreateOnThemeChange.HasValue)
+                return page.ReCreateOnThemeChange.Value;
+            page = page.ParentPage;
+        }
+        return true;
+    }
+
+    void ModalBackdropShownChanged(bool shown) {
+        if(!shown) {
+            ThemeSwitcherShown = false;
+            LayoutToggled = false;
+        }
+    }
+
+
+    public string SearchString {
+        get { return _searchString; }
+        set {
+            if(_searchString != value) {
+                _searchString = value;
+                InvokeAsync(UpdateSearchResults);
+            }
+        }
+    }
+    public List<AppSearchResult> SearchResults { get; set; }
+    async Task UpdateSearchResults() {
+        var searchResults = (SearchString != null && SearchString.Length > 2) ? Configuration.DoSearch(SearchString) : null;
+        if(SearchResults != searchResults) {
+            SearchResults = searchResults;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    bool HasAnchorInUrl(string uri) {
+        return !string.IsNullOrEmpty(NavigationManager.ToAbsoluteUri(uri).Fragment.Replace("#", ""));
+    }
+    async Task ScrollToMainTopIfNeeded(string uri) {
+        if(!HasAnchorInUrl(uri))
+            await pageHelper.InvokeVoidAsync("DemoPageHelper.scroll.toElementTop", contentContainerRef);
+    }
+    async Task ScrollToTargetIfNeeded(string uri) {
+        if(HasAnchorInUrl(uri))
+            await pageHelper.InvokeVoidAsync("DemoPageHelper.scroll.ensureNavigationTargetIsVisible");
+    }
+    string GetDemoContentContainerCss() {
+        List<string> cssClasses = new List<string>();
+        cssClasses.Add("demo-content-container");
+#if !VISUALTESTS
+        if(IsFirstTimeRendered)
+            cssClasses.Add("animated");
+#endif
+        cssClasses.Add("theme-" + ThemeName.Replace(" ", "-"));
+        if(IsBootstrapNative)
+            cssClasses.Add("theme-external");
+        return string.Join(" ", cssClasses);
+    }
+    string GetDemoBreadcrumbsContainerCss() {
+        List<string> cssClasses = new List<string>();
+        cssClasses.Add("demo-breadcrumbs-container");
+        cssClasses.Add("theme-" + ThemeName.Replace(" ", "-"));
+        if(IsBootstrapNative)
+            cssClasses.Add("theme-external");
+        return string.Join(" ", cssClasses);
+    }
+    string GetDemoBreadcrumbsCss() {
+        List<string> cssClasses = new List<string>();
+        cssClasses.Add("demo-breadcrumbs");
+        cssClasses.Add(LayoutStateCssClass);
+        return string.Join(" ", cssClasses);
+    }
+    string GetDemoHeaderContainerCss() {
+        List<string> cssClasses = new List<string>();
+        cssClasses.Add("demo-header-container");
+        cssClasses.Add("theme-" + ThemeName.Replace(" ", "-"));
+        if(IsBootstrapNative)
+            cssClasses.Add("theme-external");
+        return string.Join(" ", cssClasses);
+    }
+    string GetThemeSwitcherCssClass() {
+        return "theme-settings " + ThemeSwitcherShown;
+    }
+    public void Dispose() {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

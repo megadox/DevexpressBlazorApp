@@ -1,0 +1,48 @@
+﻿@using BatemBlazorApp.Configuration
+@inject AppConfiguration Configuration
+
+@if (Page.Pages.Length > 0)
+{
+    <DxTreeViewNode Text="@Page.Title" CssClass="@GetItemCssClass(Page)" NavigateUrl="@Page.Url" BadgeText="@GetItemBadgeText(Page)">
+        <Nodes>
+            @foreach (var childPage in Page.Pages)
+            {
+                <NavMenuLeaf Page="@childPage"></NavMenuLeaf>
+            }
+        </Nodes>
+    </DxTreeViewNode>
+}
+else
+{
+    <DxTreeViewNode Text="@Page.Title" CssClass="@GetItemCssClass(Page)" NavigateUrl="@Page.Url" BadgeText="@GetItemBadgeText(Page)">
+    </DxTreeViewNode>
+}
+
+@code {
+    [Parameter]
+    public AppPageBase Page { get; set; }
+
+    protected string GetItemBadgeText(AppItem page)
+    {
+        var status = page.GetStatus();
+        if (status == AppItemStatus.Preview)
+            return "CTP";
+        if (status == AppItemStatus.MaintenanceMode)
+            return "Maintenance";
+        if (status == AppItemStatus.New)
+            return "New";
+        if (status == AppItemStatus.Updated)
+            return "Upd";
+        return string.Empty;
+    }
+
+    protected string GetItemCssClass(AppPageBase page)
+    {
+        var status = page.GetStatus();
+        if (status == AppItemStatus.Preview)
+            return "item-ctp";
+        if (status == AppItemStatus.MaintenanceMode)
+            return "item-maintenance";
+        return "";
+    }
+}

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Configurations>Debug;Release;VisualTests</Configurations>
+    <AssemblyName>BatemBlazorApp</AssemblyName>
+    <RootNamespace>BatemBlazorApp</RootNamespace>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>$(DefineConstants);SERVER_BLAZOR;NET5_0</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='VisualTests|AnyCPU'">
+    <DefineConstants>$(DefineConstants);SERVER_BLAZOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="DevExpress.Blazor" Version="22.2.4" />
+    <PackageReference Include="Markdig" Version="0.32.0" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Data\Northwind\" />
+    <Folder Include="Pages\Navigation\Accordion\Descriptions\" />
+    <Folder Include="wwwroot\images\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BatemBlazorApp.AppData\BatemBlazorApp.AppData.csproj" />
+  </ItemGroup>
+</Project>

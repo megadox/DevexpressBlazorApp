@@ -1,0 +1,12 @@
+﻿@using DevExpress.Blazor.Internal
+<DxScrollViewer CssClass="@(CssClass + " blazor-scroll-view")">
+    @ChildContent
+</DxScrollViewer>
+
+@code {
+    [Parameter]
+    public string CssClass { get; set; }
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+}
+
