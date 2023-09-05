@@ -1,3 +1,6 @@
 BatemBlazorApp.AppData/bin/
 BatemBlazorApp.AppData/obj/
 BatemBlazorApp.ServerSide.Core/bin/
+BatemBlazorApp.ServerSide.Core/obj/
+BatemBlazorApp.ServerSide/bin/
+BatemBlazorApp.ServerSide/obj/
